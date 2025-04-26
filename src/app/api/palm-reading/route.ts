@@ -7,6 +7,7 @@ const getOpenAIClient = () => {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OpenAI API key is missing. Please add it to your environment variables.');
   }
+  console.log('API Key present with length:', process.env.OPENAI_API_KEY.length);
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
@@ -39,47 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize OpenAI client
     const openai = getOpenAIClient();
-    console.log('API Key length:', openai.apiKey?.length || 'undefined');
-    console.log('Using model: gpt-4.1-nano');
-    
-    // First, validate the images are actually palms
-    console.log('Validating palm images...');
-    const validationResponse = await openai.chat.completions.create({
-      model: 'gpt-4.1-nano',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an image validator that specializes in identifying palm images. Your task is to determine if the provided images are clear photos of human palms (hands open with palm facing camera). Respond with ONLY "VALID" if both images show clear human palms, "UNCLEAR" if the images appear to be palms but are too blurry or poorly lit to analyze properly, or "INVALID" if one or both images are not palms at all.'
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Are these clear images of human palms?' },
-            { type: 'image_url', image_url: { url: leftPalmBase64 } },
-            { type: 'image_url', image_url: { url: rightPalmBase64 } }
-          ]
-        }
-      ],
-      max_tokens: 50,
-      temperature: 0.1, // Low temperature for more deterministic response
-    });
-
-    const validationResult = validationResponse.choices[0]?.message?.content?.trim().toUpperCase() || '';
-    console.log('Image validation result:', validationResult);
-
-    if (validationResult.includes('INVALID')) {
-      return NextResponse.json(
-        { error: 'The uploaded images do not appear to be palm images. Please upload clear photos of your palms facing the camera.' },
-        { status: 400 }
-      );
-    }
-
-    if (validationResult.includes('UNCLEAR')) {
-      return NextResponse.json(
-        { error: 'The palm images are too blurry or poorly lit to analyze properly. Please upload clearer photos with good lighting.' },
-        { status: 400 }
-      );
-    }
+    console.log('Using model: gpt-4o-mini');
 
     // Create the prompt for palm reading
     const prompt = `You are an expert palmist who can analyze palm lines and provide insightful readings. I'm sharing images of my left and right palms. Please analyze them and provide a detailed reading.
@@ -93,64 +54,71 @@ Please analyze the following key lines and features:
 Structure your response in the following format:
 
 LEFT HAND ANALYSIS:
-(Detailed analysis of left palm lines)
+- Heart Line: [analysis without any colons or bullet points at the beginning or end]
+- Head Line: [analysis without any colons or bullet points at the beginning or end]
+- Life Line: [analysis without any colons or bullet points at the beginning or end]
+- Fate Line: [analysis without any colons or bullet points at the beginning or end]
 
 RIGHT HAND ANALYSIS:
-(Detailed analysis of right palm lines)
+- Heart Line: [analysis without any colons or bullet points at the beginning or end]
+- Head Line: [analysis without any colons or bullet points at the beginning or end]
+- Life Line: [analysis without any colons or bullet points at the beginning or end]
+- Fate Line: [analysis without any colons or bullet points at the beginning or end]
 
 HAND COMPARISON:
-(Present this as a table comparing key features between left and right hands)
+Format the comparison as a clean, simple table with these exact palm lines and labels:
 
-(Final summary and overall reading without any heading)
+| Trait | Left Hand (Inherent) | Right Hand (Developed) |
+| ----- | -------------------- | ---------------------- |
+| Heart Line | [brief 2-4 word summary of left heart line] | [brief 2-4 word summary of right heart line] |
+| Head Line | [brief 2-4 word summary of left head line] | [brief 2-4 word summary of right head line] |
+| Life Line | [brief 2-4 word summary of left life line] | [brief 2-4 word summary of right life line] |
+| Fate Line | [brief 2-4 word summary of left fate line] | [brief 2-4 word summary of right fate line] |
 
-Important: Do not include any disclaimers about the accuracy of palm reading or that you're an AI. Just provide the reading as a professional palmist would. Also, do not include any markdown formatting artifacts like '|' at the beginning of lines in the table.`;
+Keep each cell entry very concise - just 2-4 words that capture the essence of each line's reading. Do not use placeholder text.
 
-    // Call OpenAI API with streaming enabled
-    console.log('Generating palm reading with streaming...');
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-nano',
-      messages: [
-        {
-          role: 'system',
-          content: prompt,
-        },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Here are my palm images for reading:' },
-            {
-              type: 'image_url',
-              image_url: {
-                url: leftPalmBase64,
-                detail: 'high',
-              },
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: rightPalmBase64,
-                detail: 'high',
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 1500,
-      stream: true, // Enable streaming
-    });
+SUMMARY:
+[Provide a final summary and overall reading here. This should be a separate section, clearly labeled as SUMMARY.]
 
-    // Collect the entire response first
-    let fullText = '';
-    
+Important: Do not include any disclaimers about the accuracy of palm reading or that you're an AI. Just provide the reading as a professional palmist would. Do not include any colons at the beginning of analysis points or bullet points at the end of analysis points.`;
+
+    // Call OpenAI API
+    console.log('Generating palm reading...');
     try {
-      for await (const chunk of response) {
-        if (chunk.choices && chunk.choices[0]?.delta?.content) {
-          const text = chunk.choices[0].delta.content;
-          fullText += text;
-        }
-      }
-      
-      // Return the complete response
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: prompt,
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Here are my palm images for reading:' },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: leftPalmBase64,
+                  detail: 'high',
+                },
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: rightPalmBase64,
+                  detail: 'high',
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1500,
+        temperature: 0.7,
+      });
+
+      console.log('Response received successfully');
+      const fullText = response.choices[0].message.content || '';
       return new Response(fullText, {
         headers: {
           'Content-Type': 'text/plain',
@@ -158,13 +126,16 @@ Important: Do not include any disclaimers about the accuracy of palm reading or 
         },
       });
     } catch (error) {
-      console.error('Error processing response:', error);
-      return new Response(JSON.stringify({ error: 'Failed to generate palm reading' }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      console.error('Error calling OpenAI API:', error);
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      return NextResponse.json(
+        { error: 'An error occurred while generating your palm reading. Please try again.' },
+        { status: 500 }
+      );
     }
   } catch (error: unknown) {
     console.error('Error processing palm reading:', error);
@@ -189,8 +160,10 @@ Important: Do not include any disclaimers about the accuracy of palm reading or 
     
     // Log request details
     try {
-      console.error('Request method:', request.method);
-      console.error('Request headers:', JSON.stringify(Object.fromEntries(request.headers)));
+      console.error('Request method:', request?.method || 'unknown');
+      if (request && request.headers) {
+        console.error('Request headers:', JSON.stringify(Object.fromEntries(request.headers)));
+      }
     } catch (logError) {
       console.error('Error logging request details:', logError);
     }

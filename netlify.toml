@@ -14,7 +14,7 @@
   # Increase the function timeout to 60 seconds for longer processing time
   included_files = ["**/*"]
   node_bundler = "esbuild"
-  external_node_modules = ["sharp"]
+  external_node_modules = ["sharp", "openai"]
 
 [functions."*"]
   # Apply these settings to all functions

@@ -77,48 +77,171 @@ export default function Home() {
         const cleanMarkdown = (text: string) => {
           return text
             .trim()
-            .replace(/^[\s\*\-_#]+|[\s\*\-_#]+$/g, '') // Remove leading/trailing markdown chars
+            .replace(/^[\s\*\-_#:]+|[\s\*\-_#:]+$/g, '') // Remove leading/trailing markdown chars and colons
             .replace(/^(SUMMARY|INSIGHTS|SUMMARY & INSIGHTS):\s*/i, '') // Remove section prefixes
+            .replace(/\d+\.\s*$/, '') // Remove trailing numbers like "2." at the end
             .trim();
         };
         
-        // Function to format table content
+        // Function to format table content with a clean, minimalist design
         const formatTableContent = (content: string) => {
-          // Check if content contains table format (has pipe symbols)
-          if (content.includes('|')) {
-            const rows = content.split('\n').filter(row => row.trim() !== '');
+          // Define trait type
+          type Trait = {
+            name: string;
+            leftDesc: string;
+            rightDesc: string;
+          };
+          
+          // Create default table structure based on the clean design
+          const createCleanTable = (leftHandData?: Record<string, string>, rightHandData?: Record<string, string>) => {
+            const traits: Trait[] = [
+              { name: 'Heart Line', leftDesc: leftHandData?.heartLine || '', rightDesc: rightHandData?.heartLine || '' },
+              { name: 'Head Line', leftDesc: leftHandData?.headLine || '', rightDesc: rightHandData?.headLine || '' },
+              { name: 'Life Line', leftDesc: leftHandData?.lifeLine || '', rightDesc: rightHandData?.lifeLine || '' },
+              { name: 'Fate Line', leftDesc: leftHandData?.fateLine || '', rightDesc: rightHandData?.fateLine || '' }
+            ];
             
-            // Create HTML table
-            let tableHtml = '<table class="min-w-full border-collapse">';
+            let tableHtml = `
+              <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b dark:border-gray-700">
+                      <th class="py-3 px-4 font-medium text-gray-900 dark:text-white">Trait</th>
+                      <th class="py-3 px-4 font-medium text-gray-900 dark:text-white">Left Hand (Inherent)</th>
+                      <th class="py-3 px-4 font-medium text-gray-900 dark:text-white">Right Hand (Developed)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+            `;
             
-            // Process each row
-            rows.forEach((row, index) => {
-              // Skip separator row (contains only --- and |)
-              if (row.match(/^[\s|\-]+$/)) return;
-              
-              const isHeader = index === 0;
-              const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell !== '');
-              
-              tableHtml += '<tr>';
-              cells.forEach((cell, cellIndex) => {
-                if (isHeader) {
-                  // Make the first column (Aspect) narrower
-                  const width = cellIndex === 0 ? 'w-1/4' : 'w-3/8';
-                  tableHtml += `<th class="${width} border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 p-2 text-left">${cell}</th>`;
-                } else {
-                  const width = cellIndex === 0 ? 'w-1/4' : 'w-3/8';
-                  tableHtml += `<td class="${width} border border-indigo-100 dark:border-indigo-900 p-2">${cell}</td>`;
-                }
-              });
-              tableHtml += '</tr>';
+            traits.forEach((trait, index) => {
+              tableHtml += `
+                <tr class="${index !== traits.length - 1 ? 'border-b dark:border-gray-700' : ''}">
+                  <td class="py-3 px-4 font-medium text-gray-900 dark:text-white">${trait.name}</td>
+                  <td class="py-3 px-4 text-gray-700 dark:text-gray-300">${trait.leftDesc || 'See detailed analysis above'}</td>
+                  <td class="py-3 px-4 text-gray-700 dark:text-gray-300">${trait.rightDesc || 'See detailed analysis above'}</td>
+                </tr>
+              `;
             });
             
-            tableHtml += '</table>';
+            tableHtml += `
+                  </tbody>
+                </table>
+              </div>
+            `;
+            
             return tableHtml;
+          };
+          
+          // Try to extract data from the content if it's in table format
+          if (content.includes('|')) {
+            try {
+              // Parse the markdown table
+              const rows = content.split('\n')
+                .map(row => row.trim())
+                .filter(row => row.length > 0 && row.includes('|'));
+              
+              // Skip header separator row (contains only --- and |)
+              const dataRows = rows.filter(row => !row.match(/^[\s|\-]+$/));
+              
+              // Extract traits and descriptions
+              const traits: Array<{name: string; leftDesc: string; rightDesc: string}> = [];
+              let headerRow: string[] | null = null;
+              
+              dataRows.forEach((row, index) => {
+                const cells = row.split('|')
+                  .map(cell => cell.trim())
+                  .filter(cell => cell !== '');
+                
+                if (cells.length >= 3) {
+                  if (index === 0) {
+                    // This is the header row
+                    headerRow = cells;
+                  } else {
+                    // This is a data row
+                    const trait = cells[0];
+                    const leftDesc = cells[1];
+                    const rightDesc = cells[2];
+                    
+                    // Keep original palm line names
+                    let traitName = trait;
+                    
+                    traits.push({
+                      name: traitName,
+                      leftDesc: leftDesc,
+                      rightDesc: rightDesc
+                    });
+                  }
+                }
+              });
+              
+              // If we have valid data, create the table
+              if (traits.length > 0) {
+                let tableHtml = `
+                  <div class="overflow-x-auto w-full">
+                    <table class="w-full text-left border-collapse">
+                      <thead>
+                        <tr class="border-b dark:border-gray-700">
+                          <th class="py-3 px-4 font-medium text-gray-900 dark:text-white">Trait</th>
+                          <th class="py-3 px-4 font-medium text-gray-900 dark:text-white">Left Hand (Inherent)</th>
+                          <th class="py-3 px-4 font-medium text-gray-900 dark:text-white">Right Hand (Developed)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                `;
+                
+                traits.forEach((trait, index) => {
+                  tableHtml += `
+                    <tr class="${index !== traits.length - 1 ? 'border-b dark:border-gray-700' : ''}">
+                      <td class="py-3 px-4 font-medium text-gray-900 dark:text-white">${trait.name}</td>
+                      <td class="py-3 px-4 text-gray-700 dark:text-gray-300">${trait.leftDesc}</td>
+                      <td class="py-3 px-4 text-gray-700 dark:text-gray-300">${trait.rightDesc}</td>
+                    </tr>
+                  `;
+                });
+                
+                tableHtml += `
+                      </tbody>
+                    </table>
+                  </div>
+                `;
+                
+                return tableHtml;
+              }
+            } catch (error) {
+              console.error('Error parsing table:', error);
+              // Fall back to default table if parsing fails
+            }
           }
           
-          // If not a table, return the original content
-          return content;
+          // If we couldn't parse the content or it's not in table format,
+          // try to extract data from the detailed analysis sections
+          const leftHandData: Record<string, string> = {};
+          const rightHandData: Record<string, string> = {};
+          
+          // Extract data from the left hand analysis
+          const leftHeartLineMatch = leftHeartLine.match(/([^.:\-*]+)/);
+          const leftHeadLineMatch = leftHeadLine.match(/([^.:\-*]+)/);
+          const leftLifeLineMatch = leftLifeLine.match(/([^.:\-*]+)/);
+          const leftFateLineMatch = leftFateLine.match(/([^.:\-*]+)/);
+          
+          if (leftHeartLineMatch) leftHandData.heartLine = leftHeartLineMatch[1].trim();
+          if (leftHeadLineMatch) leftHandData.headLine = leftHeadLineMatch[1].trim();
+          if (leftLifeLineMatch) leftHandData.lifeLine = leftLifeLineMatch[1].trim();
+          if (leftFateLineMatch) leftHandData.fateLine = leftFateLineMatch[1].trim();
+          
+          // Extract data from the right hand analysis
+          const rightHeartLineMatch = rightHeartLine.match(/([^.:\-*]+)/);
+          const rightHeadLineMatch = rightHeadLine.match(/([^.:\-*]+)/);
+          const rightLifeLineMatch = rightLifeLine.match(/([^.:\-*]+)/);
+          const rightFateLineMatch = rightFateLine.match(/([^.:\-*]+)/);
+          
+          if (rightHeartLineMatch) rightHandData.heartLine = rightHeartLineMatch[1].trim();
+          if (rightHeadLineMatch) rightHandData.headLine = rightHeadLineMatch[1].trim();
+          if (rightLifeLineMatch) rightHandData.lifeLine = rightLifeLineMatch[1].trim();
+          if (rightFateLineMatch) rightHandData.fateLine = rightFateLineMatch[1].trim();
+          
+          return createCleanTable(leftHandData, rightHandData);
         };
 
             // Process left hand lines
