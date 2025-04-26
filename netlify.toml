@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NEXT_PUBLIC_SITE_URL = "https://lifelines-palmreading.netlify.app"
+  NODE_OPTIONS = "--max-old-space-size=4096"
+  OPENAI_API_KEY = "${OPENAI_API_KEY}"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  # Increase the function timeout to 60 seconds for longer processing time
+  included_files = ["**/*"]
+  node_bundler = "esbuild"
+  external_node_modules = ["sharp"]
+
+[functions."*"]
+  # Apply these settings to all functions
+  timeout = 60
